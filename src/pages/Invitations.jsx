@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Mail, Plus, RefreshCw, X, Clock } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
@@ -6,11 +6,20 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal, { Field, inputClass } from '../components/ui/Modal'
 import EmptyState from '../components/ui/EmptyState'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { useToast } from '../components/ui/Toast'
-import { invitations as seed, workspaces } from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import {
+  listInvitations,
+  createInvitation,
+  resendInvitation,
+  revokeInvitation,
+} from '../api/invitations'
+import { listWorkspaces } from '../api/workspaces'
 
-// TODO(api): GET  /api/v1/workspaces/{uuid}/invitations/
-// TODO(api): POST /api/v1/workspaces/{uuid}/invitations/  { email, role }
+// Data: GET /api/v1/workspaces/{uuid}/invitations/ ; POST/DELETE same resource.
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -21,33 +30,46 @@ function formatDate(iso) {
 }
 
 export default function Invitations() {
-  const [invites, setInvites] = useState(seed)
   const [open, setOpen] = useState(false)
+  const [toRevoke, setToRevoke] = useState(null)
   const toast = useToast()
 
-  const handleSend = (e) => {
+  const { data, loading, error, reload } = useAsync(() => listInvitations(), [])
+  const { data: workspacesData } = useAsync(() => listWorkspaces(), [])
+  const workspaces = workspacesData ?? []
+
+  // Keep a local, mutable copy so send/revoke feel instant on top of the fetch.
+  const [invites, setInvites] = useState([])
+  useEffect(() => {
+    if (data) setInvites(data)
+  }, [data])
+
+  const handleSend = async (e) => {
     e.preventDefault()
-    // TODO(api): POST /api/v1/workspaces/{uuid}/invitations/
-    // Optimistically add to the list for the prototype.
     const form = new FormData(e.target)
-    setInvites((prev) => [
-      {
-        id: `inv_${Date.now()}`,
-        email: form.get('email') || 'new@invite.com',
-        role: form.get('role') || 'Member',
-        workspace: form.get('workspace') || workspaces[0].name,
-        status: 'Pending',
-        sentAt: new Date().toISOString().slice(0, 10),
-        invitedBy: 'Alex Morgan',
-      },
-      ...prev,
-    ])
+    // POST /api/v1/workspaces/{uuid}/invitations/
+    const created = await createInvitation(undefined, {
+      email: form.get('email') || 'new@invite.com',
+      role: form.get('role') || 'Member',
+      workspace: form.get('workspace') || workspaces[0]?.name,
+    })
+    setInvites((prev) => [created, ...prev])
     setOpen(false)
     toast.success('Invitation sent')
   }
 
-  const revoke = (id) => {
+  const resend = async (id) => {
+    // POST /api/v1/workspaces/{uuid}/invitations/{id}/resend/
+    await resendInvitation(undefined, id)
+    toast.success('Invitation resent')
+  }
+
+  const confirmRevoke = async () => {
+    // DELETE /api/v1/workspaces/{uuid}/invitations/{id}/
+    const id = toRevoke.id
     setInvites((prev) => prev.filter((i) => i.id !== id))
+    setToRevoke(null)
+    await revokeInvitation(undefined, id)
     toast.info('Invitation revoked')
   }
 
@@ -62,7 +84,11 @@ export default function Invitations() {
         </Button>
       </PageHeader>
 
-      {invites.length === 0 ? (
+      {loading ? (
+        <LoadingSkeleton variant="list" rows={4} />
+      ) : error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : invites.length === 0 ? (
         <EmptyState
           icon={Mail}
           title="No invitations yet"
@@ -101,17 +127,15 @@ export default function Invitations() {
                 <div className="ml-auto flex items-center gap-1 sm:ml-0">
                   {inv.status === 'Pending' && (
                     <>
-                      {/* TODO(api): POST resend invitation */}
                       <button
-                        onClick={() => toast.success('Invitation resent')}
+                        onClick={() => resend(inv.id)}
                         className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-brand-600"
                         title="Resend"
                       >
                         <RefreshCw className="h-4 w-4" />
                       </button>
-                      {/* TODO(api): DELETE invitation */}
                       <button
-                        onClick={() => revoke(inv.id)}
+                        onClick={() => setToRevoke(inv)}
                         className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-rose-600"
                         title="Revoke"
                       >
@@ -121,7 +145,7 @@ export default function Invitations() {
                   )}
                   {inv.status === 'Expired' && (
                     <button
-                      onClick={() => toast.success('Invitation resent')}
+                      onClick={() => resend(inv.id)}
                       className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Resend
@@ -178,6 +202,20 @@ export default function Invitations() {
           </div>
         </form>
       </Modal>
+
+      {/* Revoke confirmation */}
+      <ConfirmDialog
+        open={!!toRevoke}
+        title="Revoke invitation?"
+        description={
+          toRevoke
+            ? `The invite to ${toRevoke.email} will no longer be valid.`
+            : ''
+        }
+        confirmLabel="Revoke"
+        onConfirm={confirmRevoke}
+        onClose={() => setToRevoke(null)}
+      />
     </div>
   )
 }

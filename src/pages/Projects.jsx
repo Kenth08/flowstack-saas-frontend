@@ -8,11 +8,15 @@ import ProjectCard from '../components/projects/ProjectCard'
 import { AvatarGroup } from '../components/ui/Avatar'
 import Modal, { Field, inputClass } from '../components/ui/Modal'
 import EmptyState from '../components/ui/EmptyState'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { useToast } from '../components/ui/Toast'
 import { cn } from '../lib/cn'
-import { projects, workspaces } from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import { listProjects, createProject } from '../api/projects'
+import { listWorkspaces } from '../api/workspaces'
 
-// TODO(api): GET /api/v1/workspaces/{uuid}/projects/ ; POST to create.
+// Data: GET /api/v1/workspaces/{uuid}/projects/ ; create: POST same path.
 
 const statusFilters = ['All', 'On Track', 'At Risk', 'Delayed']
 
@@ -31,6 +35,11 @@ export default function Projects() {
   const [open, setOpen] = useState(false)
   const toast = useToast()
 
+  const { data, loading, error, reload } = useAsync(() => listProjects(), [])
+  const { data: workspacesData } = useAsync(() => listWorkspaces(), [])
+  const projects = data ?? []
+  const workspaces = workspacesData ?? []
+
   const filtered = useMemo(() => {
     return projects.filter((p) => {
       const matchesQuery =
@@ -39,13 +48,21 @@ export default function Projects() {
       const matchesStatus = status === 'All' || p.status === status
       return matchesQuery && matchesStatus
     })
-  }, [query, status])
+  }, [projects, query, status])
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
-    // TODO(api): POST /api/v1/workspaces/{uuid}/projects/
+    const form = new FormData(e.target)
+    // POST /api/v1/workspaces/{uuid}/projects/
+    await createProject(undefined, {
+      name: form.get('name'),
+      workspace: form.get('workspace'),
+      dueDate: form.get('dueDate'),
+      status: form.get('status'),
+    })
     setOpen(false)
     toast.success('Project created')
+    reload()
   }
 
   return (
@@ -59,6 +76,12 @@ export default function Projects() {
         </Button>
       </PageHeader>
 
+      {loading ? (
+        <LoadingSkeleton variant={view === 'table' ? 'table' : 'cards'} />
+      ) : error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : (
+        <>
       {/* Filter bar */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
@@ -186,6 +209,8 @@ export default function Projects() {
           </div>
         </div>
       )}
+        </>
+      )}
 
       {/* Create modal (UI only) */}
       <Modal
@@ -206,22 +231,22 @@ export default function Projects() {
       >
         <form id="create-project-form" onSubmit={handleCreate} className="space-y-4">
           <Field label="Project name">
-            <input required placeholder="e.g. Mobile App Redesign" className={inputClass} />
+            <input required name="name" placeholder="e.g. Mobile App Redesign" className={inputClass} />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Workspace">
-              <select className={inputClass}>
+              <select name="workspace" className={inputClass}>
                 {workspaces.map((w) => (
                   <option key={w.id}>{w.name}</option>
                 ))}
               </select>
             </Field>
             <Field label="Due date">
-              <input type="date" className={inputClass} />
+              <input type="date" name="dueDate" className={inputClass} />
             </Field>
           </div>
           <Field label="Status">
-            <select className={inputClass}>
+            <select name="status" className={inputClass}>
               <option>On Track</option>
               <option>At Risk</option>
               <option>Delayed</option>

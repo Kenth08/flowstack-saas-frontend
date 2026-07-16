@@ -4,12 +4,22 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import PricingCard from '../components/billing/PricingCard'
 import BillingUsageCard from '../components/billing/BillingUsageCard'
+import DataTable from '../components/ui/DataTable'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { useToast } from '../components/ui/Toast'
-import { billing, plans } from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import {
+  getSubscription,
+  listPlans,
+  createCheckoutSession,
+  createPortalSession,
+} from '../api/billing'
 
-// TODO(api): GET  /api/v1/billing/subscription/   -> current plan + usage
-// TODO(api): POST /api/v1/billing/checkout-session/ -> Stripe Checkout redirect
-// TODO(api): POST /api/v1/billing/portal-session/   -> Stripe billing portal
+// Data:
+//   GET  /api/v1/billing/subscription/     -> current plan + usage + history
+//   POST /api/v1/billing/checkout-session/ -> Stripe Checkout redirect
+//   POST /api/v1/billing/portal-session/   -> Stripe billing portal
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -19,19 +29,76 @@ function formatDate(iso) {
   })
 }
 
+// Columns for the billing history DataTable (shared by desktop + mobile views).
+const historyColumns = [
+  { key: 'id', header: 'Invoice', className: 'font-medium text-slate-700',
+    render: (h) => `#${h.id}` },
+  { key: 'date', header: 'Date', render: (h) => formatDate(h.date) },
+  { key: 'plan', header: 'Plan' },
+  { key: 'amount', header: 'Amount', className: 'font-medium text-slate-700',
+    render: (h) => `$${h.amount.toFixed(2)}` },
+  { key: 'status', header: 'Status', render: (h) => <Badge>{h.status}</Badge> },
+  {
+    key: 'receipt',
+    header: 'Receipt',
+    align: 'right',
+    render: () => (
+      <button className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50">
+        <Download className="h-3.5 w-3.5" /> PDF
+      </button>
+    ),
+  },
+]
+
 export default function Billing() {
   const toast = useToast()
-  const { currentPlan, usage, history } = billing
+  const { data: billing, loading, error, reload } = useAsync(
+    () => getSubscription(),
+    []
+  )
+  const { data: plansData } = useAsync(() => listPlans(), [])
+  const plans = plansData ?? []
 
-  const openPortal = () => {
-    // TODO(api): POST /api/v1/billing/portal-session/ then redirect to url
+  const openPortal = async () => {
+    // POST /api/v1/billing/portal-session/ then redirect to { url }.
     toast.info('Redirecting to billing portal…')
+    const { url } = await createPortalSession()
+    if (url) window.location.href = url
   }
 
-  const selectPlan = (plan) => {
-    // TODO(api): POST /api/v1/billing/checkout-session/ { plan: plan.id }
-    toast.success(`Selected the ${plan.name} plan`)
+  const selectPlan = async (plan) => {
+    // POST /api/v1/billing/checkout-session/ { plan: plan.id } then redirect.
+    const { url } = await createCheckoutSession({ plan: plan.id })
+    if (url) window.location.href = url
+    else toast.success(`Selected the ${plan.name} plan`)
   }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Billing"
+          subtitle="Manage your subscription, usage, and payment history."
+        />
+        <ErrorState error={error} onRetry={reload} />
+      </div>
+    )
+  }
+
+  if (loading || !billing) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Billing"
+          subtitle="Manage your subscription, usage, and payment history."
+        />
+        <LoadingSkeleton variant="charts" />
+        <LoadingSkeleton variant="table" rows={4} cols={6} />
+      </div>
+    )
+  }
+
+  const { currentPlan, usage, history } = billing
 
   return (
     <div className="space-y-6">
@@ -109,8 +176,8 @@ export default function Billing() {
       </div>
 
       {/* Billing history */}
-      <div className="fs-card overflow-hidden">
-        <div className="flex items-center justify-between p-5">
+      <div>
+        <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-slate-900">
               Billing history
@@ -123,44 +190,8 @@ export default function Billing() {
             <span className="hidden sm:inline">Billing portal</span>
           </Button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-y border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="px-5 py-3 font-medium">Invoice</th>
-                <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-5 py-3 font-medium">Plan</th>
-                <th className="px-5 py-3 font-medium">Amount</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 text-right font-medium">Receipt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {history.map((h) => (
-                <tr key={h.id} className="transition-colors hover:bg-slate-50/70">
-                  <td className="px-5 py-3 font-medium text-slate-700">
-                    #{h.id}
-                  </td>
-                  <td className="px-5 py-3 text-slate-500">
-                    {formatDate(h.date)}
-                  </td>
-                  <td className="px-5 py-3 text-slate-600">{h.plan}</td>
-                  <td className="px-5 py-3 font-medium text-slate-700">
-                    ${h.amount.toFixed(2)}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Badge>{h.status}</Badge>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <button className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50">
-                      <Download className="h-3.5 w-3.5" /> PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* DataTable renders a table on desktop and stacked cards on mobile. */}
+        <DataTable columns={historyColumns} data={history} />
       </div>
     </div>
   )

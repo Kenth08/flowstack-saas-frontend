@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Building2,
@@ -26,9 +26,27 @@ import Logo from '../components/ui/Logo'
 import Button from '../components/ui/Button'
 import { plans, faqs } from '../data/mockData'
 import { cn } from '../lib/cn'
+import { useAuth } from '../context/AuthContext'
 
 // Shared container: consistent ~1152px max width + horizontal padding.
 const container = 'mx-auto w-full max-w-6xl px-6 lg:px-8'
+
+// Shared hook: "View Demo" signs into the mock demo account, then opens the app.
+function useDemo() {
+  const { signInDemo } = useAuth()
+  const navigate = useNavigate()
+  return async () => {
+    await signInDemo()
+    navigate('/dashboard')
+  }
+}
+
+// Where each pricing plan's CTA should route.
+//   Free/Pro -> prefilled register; Business -> talk to sales.
+function planCta(plan) {
+  if (plan.id === 'business') return '/contact?plan=business'
+  return `/register?plan=${plan.id}`
+}
 
 // ---------------------------------------------------------------------------
 // Feature list for the landing grid.
@@ -191,6 +209,7 @@ function Navbar() {
 // Hero — gradient glow, trust badge, tighter copy, larger preview near text.
 // ---------------------------------------------------------------------------
 function Hero() {
+  const openDemo = useDemo()
   return (
     <section className="relative overflow-hidden">
       {/* background glows */}
@@ -246,7 +265,13 @@ function Hero() {
                 Start Free Trial
               </Button>
             </Link>
-            <Button variant="secondary" size="lg" icon={Play} className="px-7 text-base">
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={Play}
+              className="px-7 text-base"
+              onClick={openDemo}
+            >
               View Demo
             </Button>
           </div>
@@ -713,13 +738,17 @@ function Pricing() {
                   ))}
                 </ul>
 
-                <Link to="/register">
+                <Link to={planCta(plan)} className="block">
                   <Button
                     variant={highlighted ? 'gradient' : 'secondary'}
                     size="lg"
                     className={cn('w-full', highlighted && 'shadow-lg shadow-brand-600/30')}
                   >
-                    {plan.price === 0 ? 'Get Started Free' : `Choose ${plan.name}`}
+                    {plan.id === 'business'
+                      ? 'Contact Sales'
+                      : plan.price === 0
+                        ? 'Get Started Free'
+                        : `Choose ${plan.name}`}
                   </Button>
                 </Link>
               </div>
@@ -854,13 +883,49 @@ function CTABanner() {
 // Footer — bigger logo, social icons, status.
 // ---------------------------------------------------------------------------
 function Footer() {
+  // Every link resolves to a real destination so none are dead. Internal routes
+  // use `to`; on-page sections use `href` anchors.
   const cols = [
-    { title: 'Product', links: ['Features', 'Pricing', 'Integrations', 'Changelog'] },
-    { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-    { title: 'Resources', links: ['Docs', 'Help Center', 'API', 'Status'] },
-    { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'Cookies'] },
+    {
+      title: 'Product',
+      links: [
+        { label: 'Features', href: '#features' },
+        { label: 'Pricing', href: '#pricing' },
+        { label: 'FAQ', href: '#faq' },
+        { label: 'Sign in', to: '/login' },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About', href: '#features' },
+        { label: 'Contact', to: '/contact' },
+        { label: 'Careers', to: '/contact' },
+        { label: 'Get started', to: '/register' },
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Demo', to: '/login' },
+        { label: 'Help Center', to: '/contact' },
+        { label: 'Pricing', href: '#pricing' },
+        { label: 'Status', href: '#' },
+      ],
+    },
+    {
+      title: 'Legal',
+      links: [
+        { label: 'Privacy', to: '/contact' },
+        { label: 'Terms', to: '/contact' },
+        { label: 'Security', to: '/contact' },
+        { label: 'Cookies', to: '/contact' },
+      ],
+    },
   ]
   const socials = [Twitter, Github, Linkedin]
+  const linkClass =
+    'rounded text-sm text-slate-500 transition-colors hover:text-brand-600 fs-focus'
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className={cn(container, 'py-16')}>
@@ -888,13 +953,16 @@ function Footer() {
               <h4 className="text-sm font-semibold text-slate-900">{col.title}</h4>
               <ul className="mt-4 space-y-3">
                 {col.links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="text-sm text-slate-500 transition-colors hover:text-brand-600"
-                    >
-                      {link}
-                    </a>
+                  <li key={link.label}>
+                    {link.to ? (
+                      <Link to={link.to} className={linkClass}>
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <a href={link.href} className={linkClass}>
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -11,10 +11,13 @@ import Button from '../components/ui/Button'
 import ChartCard from '../components/dashboard/ChartCard'
 import LineChartMock from '../components/dashboard/LineChartMock'
 import BarChartMock from '../components/dashboard/BarChartMock'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { cn } from '../lib/cn'
-import { analytics } from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import { getAnalytics } from '../api/analytics'
 
-// TODO(api): GET /api/v1/workspaces/{uuid}/analytics/ for all panels below.
+// Data: GET /api/v1/workspaces/{uuid}/analytics/ for all panels below.
 
 function KpiTile({ kpi }) {
   const positive = kpi.trend >= 0
@@ -51,6 +54,11 @@ function formatUsage(item) {
 }
 
 export default function Analytics() {
+  const { data: analytics, loading, error, reload } = useAsync(
+    () => getAnalytics(),
+    []
+  )
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -65,6 +73,15 @@ export default function Analytics() {
         <Button variant="secondary">Export</Button>
       </PageHeader>
 
+      {error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : loading || !analytics ? (
+        <>
+          <LoadingSkeleton variant="stats" />
+          <LoadingSkeleton variant="charts" />
+        </>
+      ) : (
+        <>
       {/* KPI tiles */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {analytics.kpis.map((kpi) => (
@@ -182,6 +199,8 @@ export default function Analytics() {
           })}
         </div>
       </ChartCard>
+        </>
+      )}
     </div>
   )
 }

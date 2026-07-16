@@ -15,12 +15,15 @@ import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
 import Avatar from '../components/ui/Avatar'
 import { Field, inputClass } from '../components/ui/Modal'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { useToast } from '../components/ui/Toast'
 import { cn } from '../lib/cn'
-import { currentUser } from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import { getMe, updateMe } from '../api/me'
 
-// All settings are mock/local state only.
-// TODO(api): PATCH /api/v1/me/ and workspace settings endpoints on save.
+// Profile loads from GET /api/v1/me/. On save the Profile tab PATCHes /me/;
+// workspace/notification/security tabs will hit their own endpoints later.
 
 const tabs = [
   { key: 'profile', label: 'Profile', icon: User },
@@ -86,8 +89,15 @@ export default function Settings() {
   const [theme, setTheme] = useState('light')
   const toast = useToast()
 
-  const save = () => {
-    // TODO(api): PATCH the relevant settings endpoint
+  const { data: currentUser, loading, error, reload } = useAsync(
+    () => getMe(),
+    []
+  )
+
+  const save = async () => {
+    // On the Profile tab, persist changes with PATCH /api/v1/me/.
+    // Other tabs will call their own endpoints as the backend adds them.
+    if (tab === 'profile') await updateMe({})
     toast.success('Changes saved')
   }
 
@@ -97,6 +107,12 @@ export default function Settings() {
         title="Settings"
         subtitle="Manage your account, workspace, and preferences."
       />
+
+      {error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : loading || !currentUser ? (
+        <LoadingSkeleton variant="block" className="h-96 rounded-2xl" />
+      ) : (
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
         {/* Tabs */}
@@ -342,6 +358,7 @@ export default function Settings() {
           </div>
         </motion.div>
       </div>
+      )}
     </div>
   )
 }

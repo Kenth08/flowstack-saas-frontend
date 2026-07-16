@@ -8,17 +8,17 @@ import DonutChartMock from '../components/dashboard/DonutChartMock'
 import ActivityFeed from '../components/dashboard/ActivityFeed'
 import Badge from '../components/ui/Badge'
 import { AvatarGroup } from '../components/ui/Avatar'
-import {
-  currentUser,
-  overviewStats,
-  analytics,
-  projects,
-  activities,
-  upcomingDeadlines,
-} from '../data/mockData'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
+import { useAsync } from '../hooks/useAsync'
+import { getMe } from '../api/me'
+import { getOverview } from '../api/analytics'
+import { listProjects } from '../api/projects'
 
-// TODO(api): GET /api/v1/workspaces/{uuid}/analytics/ for stats + charts
-// TODO(api): GET /api/v1/workspaces/{uuid}/projects/ for the recent list
+// Data sources for this page:
+//   GET /api/v1/me/                                  -> welcome name
+//   GET /api/v1/workspaces/{uuid}/analytics/         -> stats, charts, activity
+//   GET /api/v1/workspaces/{uuid}/projects/          -> recent projects list
 
 const urgencyTone = {
   today: 'danger',
@@ -35,14 +35,49 @@ function formatDate(iso) {
 }
 
 export default function Overview() {
-  const recentProjects = projects.slice(0, 4)
+  const { data: me } = useAsync(() => getMe(), [])
+  const { data: overview, loading, error, reload } = useAsync(
+    () => getOverview(),
+    []
+  )
+  const { data: projectsData } = useAsync(() => listProjects(), [])
+
+  const firstName = me?.firstName ?? 'there'
+  const recentProjects = (projectsData ?? []).slice(0, 4)
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <ErrorState error={error} onRetry={reload} />
+      </div>
+    )
+  }
+
+  if (loading || !overview) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            Welcome back, {firstName} 👋
+          </h2>
+          <p className="text-sm text-slate-500">
+            Here's what's happening across your workspaces today.
+          </p>
+        </div>
+        <LoadingSkeleton variant="stats" />
+        <LoadingSkeleton variant="charts" />
+      </div>
+    )
+  }
+
+  const { stats, charts, activities, upcomingDeadlines } = overview
 
   return (
     <div className="space-y-6">
       {/* Welcome */}
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-          Welcome back, {currentUser.firstName} 👋
+          Welcome back, {firstName} 👋
         </h2>
         <p className="text-sm text-slate-500">
           Here's what's happening across your workspaces today.
@@ -51,7 +86,7 @@ export default function Overview() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {overviewStats.map((stat, i) => (
+        {stats.map((stat, i) => (
           <StatCard key={stat.key} stat={stat} index={i} />
         ))}
       </div>
@@ -73,11 +108,11 @@ export default function Overview() {
             </div>
           }
         >
-          <LineChartMock data={analytics.taskProgress} />
+          <LineChartMock data={charts.taskProgress} />
         </ChartCard>
 
         <ChartCard title="Tasks by Status" subtitle="Current distribution">
-          <DonutChartMock data={analytics.tasksByStatus} />
+          <DonutChartMock data={charts.tasksByStatus} />
         </ChartCard>
       </div>
 
