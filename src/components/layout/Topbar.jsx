@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Menu, LogOut, User, Settings as SettingsIcon } from 'lucide-react'
+import { Bell, Menu, LogOut, User, CreditCard, Settings as SettingsIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import SearchInput from '../ui/SearchInput'
 import Avatar from '../ui/Avatar'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
-import { currentUser } from '../../data/mockData'
+import { useAuth } from '../../context/AuthContext'
+import { currentUser as fallbackUser } from '../../data/mockData'
 
 // Sticky top header: mobile menu button, page title, search, workspace
 // switcher, notifications, and the user menu.
@@ -15,6 +16,19 @@ export default function Topbar({ title, onMenuClick }) {
   const notifRef = useRef(null)
   const userRef = useRef(null)
   const navigate = useNavigate()
+  const { user, signOut } = useAuth()
+  const currentUser = user ?? fallbackUser
+
+  const handleLogout = () => {
+    setUserOpen(false)
+    signOut() // clears the mock session (localStorage)
+    navigate('/login', { replace: true })
+  }
+
+  const goTo = (path) => {
+    setUserOpen(false)
+    navigate(path)
+  }
 
   useEffect(() => {
     const onClick = (e) => {
@@ -111,7 +125,10 @@ export default function Topbar({ title, onMenuClick }) {
           <div className="relative" ref={userRef}>
             <button
               onClick={() => setUserOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-slate-100"
+              className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-slate-100 fs-focus"
+              aria-label="Account menu"
+              aria-haspopup="menu"
+              aria-expanded={userOpen}
             >
               <Avatar
                 initials={currentUser.initials}
@@ -145,28 +162,27 @@ export default function Topbar({ title, onMenuClick }) {
                   </div>
                   <div className="my-1 h-px bg-slate-100" />
                   <button
-                    onClick={() => {
-                      setUserOpen(false)
-                      navigate('/settings')
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+                    onClick={() => goTo('/settings')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 fs-focus"
                   >
                     <User className="h-4 w-4 text-slate-400" /> Profile
                   </button>
                   <button
-                    onClick={() => {
-                      setUserOpen(false)
-                      navigate('/settings')
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+                    onClick={() => goTo('/settings')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 fs-focus"
                   >
                     <SettingsIcon className="h-4 w-4 text-slate-400" /> Settings
                   </button>
-                  <div className="my-1 h-px bg-slate-100" />
-                  {/* TODO(api): call logout endpoint / clear tokens */}
                   <button
-                    onClick={() => navigate('/login')}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50"
+                    onClick={() => goTo('/billing')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 fs-focus"
+                  >
+                    <CreditCard className="h-4 w-4 text-slate-400" /> Billing
+                  </button>
+                  <div className="my-1 h-px bg-slate-100" />
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50 fs-focus"
                   >
                     <LogOut className="h-4 w-4" /> Sign out
                   </button>

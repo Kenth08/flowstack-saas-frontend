@@ -28,7 +28,7 @@ export default function AppLayout() {
       <div className="flex">
         <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-        <div className="flex min-h-screen w-full flex-col lg:pl-0">
+        <div className="flex min-h-screen w-full min-w-0 flex-col lg:pl-0">
           <Topbar title={title} onMenuClick={() => setMobileOpen(true)} />
 
           <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">

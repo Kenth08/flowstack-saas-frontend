@@ -1,20 +1,21 @@
 import { useMemo, useState } from 'react'
-import { Plus, Calendar, Flag, User, Tag as TagIcon } from 'lucide-react'
+import { Plus, Calendar, Flag, User, Tag as TagIcon, ListChecks } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
 import KanbanBoard from '../components/tasks/KanbanBoard'
 import Modal, { Field, inputClass } from '../components/ui/Modal'
+import EmptyState from '../components/ui/EmptyState'
+import LoadingSkeleton from '../components/ui/LoadingSkeleton'
+import ErrorState from '../components/ui/ErrorState'
 import { useToast } from '../components/ui/Toast'
 import { cn } from '../lib/cn'
-import {
-  tasks as allTasks,
-  taskColumns,
-  assignees,
-} from '../data/mockData'
+import { useAsync } from '../hooks/useAsync'
+import { listTasks, createTask, taskColumns } from '../api/tasks'
+import { assignees } from '../data/mockData'
 
-// TODO(api): GET /api/v1/projects/{uuid}/tasks/ ; POST to create; PATCH to move.
+// Data: GET /api/v1/projects/{uuid}/tasks/ ; POST to create; PATCH to move.
 
 const priorityOptions = ['All', 'High', 'Medium', 'Low']
 
@@ -51,6 +52,9 @@ export default function Tasks() {
   const [selected, setSelected] = useState(null)
   const toast = useToast()
 
+  const { data, loading, error, reload } = useAsync(() => listTasks(), [])
+  const allTasks = data ?? []
+
   const assigneeOptions = ['All', ...assignees.map((a) => a.name)]
 
   const filtered = useMemo(() => {
@@ -60,13 +64,21 @@ export default function Tasks() {
         assignee === 'All' || t.assignee.name === assignee
       return matchesPriority && matchesAssignee
     })
-  }, [priority, assignee])
+  }, [allTasks, priority, assignee])
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault()
-    // TODO(api): POST /api/v1/projects/{uuid}/tasks/
+    const form = new FormData(e.target)
+    // POST /api/v1/projects/{uuid}/tasks/
+    await createTask(undefined, {
+      title: form.get('title'),
+      priority: form.get('priority'),
+      status: form.get('status'),
+      dueDate: form.get('dueDate'),
+    })
     setAddOpen(false)
     toast.success('Task added')
+    reload()
   }
 
   return (
@@ -80,6 +92,20 @@ export default function Tasks() {
         </Button>
       </PageHeader>
 
+      {loading ? (
+        <LoadingSkeleton variant="kanban" />
+      ) : error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : allTasks.length === 0 ? (
+        <EmptyState
+          icon={ListChecks}
+          title="No tasks yet"
+          description="Add your first task and drop it into a column to get started."
+          actionLabel="Add Task"
+          onAction={() => setAddOpen(true)}
+        />
+      ) : (
+        <>
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <FilterSelect
@@ -117,6 +143,8 @@ export default function Tasks() {
         onTaskClick={setSelected}
         onAddTask={() => setAddOpen(true)}
       />
+        </>
+      )}
 
       {/* Task detail modal (UI only) */}
       <Modal
@@ -227,32 +255,32 @@ export default function Tasks() {
       >
         <form id="add-task-form" onSubmit={handleAdd} className="space-y-4">
           <Field label="Task title">
-            <input required placeholder="e.g. Design the settings page" className={inputClass} />
+            <input required name="title" placeholder="e.g. Design the settings page" className={inputClass} />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Priority">
-              <select className={inputClass}>
+              <select name="priority" className={inputClass}>
                 <option>High</option>
                 <option>Medium</option>
                 <option>Low</option>
               </select>
             </Field>
             <Field label="Status">
-              <select className={inputClass}>
+              <select name="status" className={inputClass}>
                 {taskColumns.map((c) => (
                   <option key={c.key}>{c.title}</option>
                 ))}
               </select>
             </Field>
             <Field label="Assignee">
-              <select className={inputClass}>
+              <select name="assignee" className={inputClass}>
                 {assignees.map((a) => (
                   <option key={a.id}>{a.name}</option>
                 ))}
               </select>
             </Field>
             <Field label="Due date">
-              <input type="date" className={inputClass} />
+              <input type="date" name="dueDate" className={inputClass} />
             </Field>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -73,7 +73,7 @@ function NavItems({ onNavigate }) {
 }
 
 // Bottom card: upgrade CTA + current plan label.
-function UpgradeCard() {
+function UpgradeCard({ onNavigate }) {
   return (
     <div className="px-3 pb-4">
       <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 p-4">
@@ -84,10 +84,15 @@ function UpgradeCard() {
         <p className="mt-1 text-xs text-brand-100">
           Unlock unlimited projects, automations, and advanced analytics.
         </p>
-        {/* TODO(api): POST /api/v1/billing/checkout-session/ to start upgrade */}
-        <button className="mt-3 w-full rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50">
+        {/* Routes to Billing; the checkout-session call lives there.
+            TODO(api): POST /api/v1/billing/checkout-session/ to start upgrade */}
+        <Link
+          to="/billing"
+          onClick={onNavigate}
+          className="mt-3 block w-full rounded-lg bg-white px-3 py-2 text-center text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 fs-focus"
+        >
           Upgrade now
-        </button>
+        </Link>
       </div>
       <div className="mt-3 flex items-center justify-between px-1">
         <span className="text-xs text-slate-500">Current plan</span>
@@ -118,7 +123,7 @@ function SidebarContent({ onNavigate, onClose }) {
       <div className="mt-2 flex-1 overflow-y-auto scrollbar-thin">
         <NavItems onNavigate={onNavigate} />
       </div>
-      <UpgradeCard />
+      <UpgradeCard onNavigate={onNavigate} />
     </div>
   )
 }

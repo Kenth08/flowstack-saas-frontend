@@ -1,7 +1,9 @@
+import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 
 // Reusable button with variants + sizes.
 // Usage: <Button variant="primary" size="md" icon={Plus}>Create</Button>
+// Pass `loading` to show a spinner and disable the button while submitting.
 const variants = {
   primary:
     'bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/20',
@@ -27,6 +29,8 @@ export default function Button({
   size = 'md',
   icon: Icon,
   iconRight: IconRight,
+  loading = false,
+  disabled = false,
   className,
   type = 'button',
   ...props
@@ -34,6 +38,8 @@ export default function Button({
   return (
     <button
       type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
         'inline-flex items-center justify-center rounded-xl font-medium transition-colors fs-focus disabled:opacity-50 disabled:pointer-events-none',
         variants[variant],
@@ -42,9 +48,13 @@ export default function Button({
       )}
       {...props}
     >
-      {Icon && <Icon className={size === 'sm' ? 'h-4 w-4' : 'h-4 w-4'} />}
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        Icon && <Icon className="h-4 w-4" />
+      )}
       {children}
-      {IconRight && <IconRight className="h-4 w-4" />}
+      {IconRight && !loading && <IconRight className="h-4 w-4" />}
     </button>
   )
 }

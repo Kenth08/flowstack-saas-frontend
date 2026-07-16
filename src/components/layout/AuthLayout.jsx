@@ -1,16 +1,32 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ArrowLeft } from 'lucide-react'
 import Logo from '../ui/Logo'
 
 // Split-screen auth shell: form on the left, brand panel on the right.
-export default function AuthLayout({ title, subtitle, children, footer }) {
+// `back` controls the top-left navigation link (defaults to "Back to home").
+export default function AuthLayout({
+  title,
+  subtitle,
+  children,
+  footer,
+  back = { to: '/', label: 'Back to home' },
+}) {
   return (
     <div className="flex min-h-screen bg-white">
       {/* Left: form */}
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-12 lg:w-1/2 lg:px-20">
         <div className="mx-auto w-full max-w-sm">
-          <Link to="/" className="inline-block">
+          {back && (
+            <Link
+              to={back.to}
+              className="mb-8 inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-slate-500 transition-colors hover:text-slate-800 fs-focus"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {back.label}
+            </Link>
+          )}
+          <Link to="/" className="inline-block rounded-md fs-focus" aria-label="FlowStack home">
             <Logo variant="light" />
           </Link>
           <motion.div

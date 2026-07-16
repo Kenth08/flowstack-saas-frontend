@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { workspaces } from '../../data/mockData'
@@ -10,6 +11,7 @@ export default function WorkspaceSwitcher() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(workspaces[0])
   const ref = useRef(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const onClick = (e) => {
@@ -23,7 +25,10 @@ export default function WorkspaceSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-sm transition-colors hover:bg-slate-50"
+        aria-label="Switch workspace"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-sm transition-colors hover:border-slate-300 hover:bg-slate-50 fs-focus"
       >
         <span
           className={cn(
@@ -82,7 +87,13 @@ export default function WorkspaceSwitcher() {
               </button>
             ))}
             <div className="my-1 h-px bg-slate-100" />
-            <button className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-brand-600 transition-colors hover:bg-brand-50">
+            <button
+              onClick={() => {
+                setOpen(false)
+                navigate('/workspaces')
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-brand-600 transition-colors hover:bg-brand-50 fs-focus"
+            >
               <span className="flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-brand-300">
                 <Plus className="h-4 w-4" />
               </span>

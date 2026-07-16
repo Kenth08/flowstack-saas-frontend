@@ -11,8 +11,9 @@ function formatDate(iso) {
   })
 }
 
-// Row action menu (UI only).
-function RowActions() {
+// Row action menu. `onRemove` is called with the member when "Remove" is
+// chosen so the parent can confirm (ConfirmDialog) and call the API.
+function RowActions({ member, onRemove }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
@@ -32,12 +33,18 @@ function RowActions() {
       </button>
       {open && (
         <div className="absolute right-0 z-10 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-card">
-          {/* TODO(api): PATCH member role */}
+          {/* TODO(api): PATCH member role — see updateMemberRole() in api/members.js */}
           <button className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-slate-600 hover:bg-slate-50">
             <Shield className="h-4 w-4 text-slate-400" /> Change role
           </button>
-          {/* TODO(api): DELETE workspace member */}
-          <button className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-rose-600 hover:bg-rose-50">
+          {/* DELETE workspace member — confirmed + called by the parent page. */}
+          <button
+            onClick={() => {
+              setOpen(false)
+              onRemove?.(member)
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-rose-600 hover:bg-rose-50"
+          >
             <Trash2 className="h-4 w-4" /> Remove
           </button>
         </div>
@@ -47,7 +54,7 @@ function RowActions() {
 }
 
 // Responsive members table. Collapses to cards on mobile.
-export default function MemberTable({ members }) {
+export default function MemberTable({ members, onRemove }) {
   return (
     <div className="fs-card overflow-hidden">
       {/* Desktop table */}
@@ -84,7 +91,7 @@ export default function MemberTable({ members }) {
                   <Badge dot>{m.status}</Badge>
                 </td>
                 <td className="px-5 py-3 text-right">
-                  <RowActions />
+                  <RowActions member={m} onRemove={onRemove} />
                 </td>
               </tr>
             ))}
@@ -105,7 +112,7 @@ export default function MemberTable({ members }) {
                 <Badge dot>{m.status}</Badge>
               </div>
             </div>
-            <RowActions />
+            <RowActions member={m} onRemove={onRemove} />
           </div>
         ))}
       </div>
